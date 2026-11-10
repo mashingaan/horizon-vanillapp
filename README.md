@@ -48,4 +48,18 @@
 - [Аудит M0 и матрица модов](docs/M0.md)
 - `tests/Test-Stage.ps1` проверяет закрепленные метаданные и отказ при изменении байтов кешированного файла.
 - `Verify pack` запускает проверку установщика. Опциональные задачи отдельно проверяют трансляцию Photon и собирают Windows-клиент с Tectonic. Прогон трансляции не проверяет отрисовку на GPU.
-- Для приемки сравните Photon, Wisdom и остальные кандидаты на одном тестовом маршруте через горы, лес, воду и дождь. На каждом профиле сохраните время кадра, средний FPS, 1% low, пиковую VRAM и версию клиента. Проверьте Patrix, переход от ближних чанков к LOD, повторное открытие мира и восстановление копии.
+- Для приемки проверьте Patrix, переход от ближних чанков к LOD, повторное открытие мира и восстановление копии. Сравните Photon, Wisdom и остальные кандидаты на одном тестовом маршруте через горы, лес, воду и дождь.
+
+После подготовки и входа в выделенном лаунчере можно запустить встроенный тест клиента. Сначала примените профиль и установите разрешение 1920×1080. Запускайте тест в отдельном экземпляре без пользовательского мира с именем `horizon-benchmark`. Horizon использует это имя для своего тестового сохранения и заменяет его при следующем прогоне.
+
+```powershell
+$root = 'E:\HorizonVanillaPP'
+$env:HORIZON_LAUNCHER_HOME = Join-Path $root 'launcher-data'
+$env:HORIZON_HOME = Join-Path $root 'game-data'
+$launcher = Join-Path $root 'tools\horizon-launcher-0.2.58.exe'
+$instance = (& $launcher instance list --json | ConvertFrom-Json) | Where-Object name -eq 'Horizon Vanilla++ M1'
+$env:TECTONIC_HORIZON_CONFIG = Join-Path $instance.home 'config/tectonic-horizon.json'
+& $launcher play --instance $instance.id --arg=--benchmark --arg=standard | Out-Host
+```
+
+Сделайте три прогона каждого профиля. Сохраните JSON из `benchmarks/` экземпляра и сверяйте разрешение, GPU, активный шейдер, дальность и версию клиента в отчетах. Для каждой сцены сравните `avg_fps`, `low_1pct_fps`, `p99_ms` и число кадров длиннее 50 мс. Целевые 60 FPS и 1% low не ниже 40 относятся к Balanced. При наличии запишите `memory.gpu_mb` и пиковый RSS. Для проверки пика VRAM дополнительно снимите максимальное показание выделенной памяти GPU за прогон, указав инструмент и область измерения. [Методика Horizon](https://github.com/horizon-rust/horizon/blob/8dbbde43501924d16497d251e6e9d08f812eafcd/docs/benchmark.md) · [Поля отчета](https://github.com/horizon-rust/horizon/blob/8dbbde43501924d16497d251e6e9d08f812eafcd/docs/benchmark-report.md)
