@@ -3,11 +3,13 @@
 param(
     [Parameter(Mandatory)]
     [string] $Root,
-    [ValidateSet('Stage', 'InstallPacks', 'Profile', 'Backup', 'OpenLauncher')]
+    [ValidateSet('Stage', 'InstallPacks', 'InstallBase', 'ImportClient', 'Profile', 'Backup', 'OpenLauncher')]
     [string] $Action = 'Stage',
     [ValidateSet('Performance', 'Balanced', 'Cinematic')]
     [string] $Profile = 'Balanced',
     [string] $PatrixZip,
+    [string] $ClientArtifact,
+    [switch] $TrustHostedClient,
     [string] $World
 )
 
@@ -48,29 +50,83 @@ function Assert-PinnedFile($Path, $Entry) {
     }
 }
 
-function Save-PinnedFile($Id, $LocalFile) {
-    $entry = $lock.files[$Id]
-    $destination = Join-Path $cache $entry.name
+function Save-PinnedFile($Entry, $LocalFile) {
+    $destination = Join-Path $cache $Entry.name
     if (Test-Path -LiteralPath $destination) {
-        Assert-PinnedFile $destination $entry
+        Assert-PinnedFile $destination $Entry
         return $destination
     }
 
     $partial = Join-Path $cache ([guid]::NewGuid().ToString() + '.partial')
     try {
         if ($LocalFile) {
-            Assert-PinnedFile $LocalFile $entry
+            Assert-PinnedFile $LocalFile $Entry
             Copy-Item -LiteralPath $LocalFile -Destination $partial
-        } elseif ($Id -eq 'patrix') {
-            throw "Supply the author's archive with -PatrixZip. Download: $($entry.source)"
+        } elseif ($Entry.name -eq $lock.files.patrix.name) {
+            throw "Supply the author's archive with -PatrixZip. Download: $($Entry.source)"
         } else {
-            Invoke-WebRequest -Uri $entry.url -OutFile $partial -TimeoutSec 90
+            Invoke-WebRequest -Uri $Entry.url -OutFile $partial -TimeoutSec 90
         }
-        Assert-PinnedFile $partial $entry
+        Assert-PinnedFile $partial $Entry
         [IO.File]::Move($partial, $destination)
         return $destination
     } finally {
         if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial }
+    }
+}
+
+function Install-PinnedBase($LauncherData) {
+    $base = $lock.importBase
+    $archive = Save-PinnedFile $base.asset
+    $versions = Join-Path $LauncherData 'versions'
+    [IO.Directory]::CreateDirectory($versions) | Out-Null
+    $destination = Join-Path $versions $base.tag
+    $zip = [IO.Compression.ZipFile]::OpenRead($archive)
+    try {
+        $client = @($zip.Entries | Where-Object Name -ceq 'horizon-client.exe')
+        if ($client.Count -ne 1) { throw 'Expected one Horizon game binary in the base archive' }
+        $prefix = $client[0].FullName.Substring(0, $client[0].FullName.Length - $client[0].Name.Length)
+        if ($prefix -cnotmatch '^(|[^/]+/)$') { throw 'Unexpected Horizon archive layout' }
+        $files = @($zip.Entries | Where-Object Name -ne '')
+        foreach ($entry in $files) {
+            if (!$entry.FullName.StartsWith($prefix, [StringComparison]::Ordinal)) {
+                throw 'Unexpected file outside the base archive root'
+            }
+        }
+        if (Test-Path -LiteralPath $destination) {
+            if (!(Test-Path -LiteralPath (Join-Path $destination '.installed') -PathType Leaf)) {
+                throw "Base version directory already exists without an install marker: $destination"
+            }
+            foreach ($entry in $files) {
+                $path = Join-Path $destination ($entry.FullName.Substring($prefix.Length))
+                $stream = $entry.Open()
+                try { $expected = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash }
+                finally { $stream.Dispose() }
+                if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $expected) {
+                    throw "Installed base file differs from the pinned archive: $path"
+                }
+            }
+            return
+        }
+
+        $pending = Join-Path $versions ".pack-base-$([guid]::NewGuid())"
+        try {
+            [IO.Compression.ZipFileExtensions]::ExtractToDirectory($zip, $pending)
+            $unpacked = if ($prefix) { Join-Path $pending $prefix } else { $pending }
+            [IO.File]::WriteAllText((Join-Path $unpacked '.installed'), '')
+            [IO.Directory]::Move($unpacked, $destination)
+        } finally {
+            if ([IO.Directory]::Exists($pending)) {
+                $resolved = [IO.Path]::GetFullPath($pending)
+                if ([IO.Path]::GetDirectoryName($resolved) -ne [IO.Path]::GetFullPath($versions) -or
+                    [IO.Path]::GetFileName($resolved) -cnotmatch '^\.pack-base-[0-9a-f-]{36}$') {
+                    throw "Unexpected extraction directory: $resolved"
+                }
+                [IO.Directory]::Delete($resolved, $true)
+            }
+        }
+    } finally {
+        $zip.Dispose()
     }
 }
 
@@ -96,7 +152,7 @@ $operation = [IO.File]::Open((Join-Path $Root '.operation.lock'), 'OpenOrCreate'
 try {
     if ($Action -in 'Stage', 'InstallPacks') {
         foreach ($id in $lock.files.Keys) {
-            Save-PinnedFile $id $(if ($id -eq 'patrix') { $PatrixZip }) | Out-Null
+            Save-PinnedFile $lock.files[$id] $(if ($id -eq 'patrix') { $PatrixZip }) | Out-Null
         }
     }
     if ($Action -eq 'Stage') {
@@ -107,7 +163,7 @@ try {
         throw 'Run Stage before using this action'
     }
 
-    $archive = Save-PinnedFile launcher
+    $archive = Save-PinnedFile $lock.files.launcher
     $tools = Join-Path $Root 'tools'
     [IO.Directory]::CreateDirectory($tools) | Out-Null
     $exe = Join-Path $tools "horizon-launcher-$($lock.files.launcher.version).exe"
@@ -157,7 +213,44 @@ try {
         }
 
         if ($Action -eq 'OpenLauncher') {
+            & $exe instance select $instance.id | Out-Null
             Start-Process -FilePath $exe
+            return
+        }
+
+        if ($Action -eq 'InstallBase') {
+            Install-PinnedBase $env:HORIZON_LAUNCHER_HOME
+            $versions = & $exe versions --installed --json | ConvertFrom-Json
+            if ($lock.importBase.tag -cnotin $versions.installed) { throw 'Launcher did not discover the pinned base' }
+            Write-Output "Installed Horizon base: $($lock.importBase.tag)"
+            return
+        }
+
+        if ($Action -eq 'ImportClient') {
+            if (!$ClientArtifact -or !$TrustHostedClient) {
+                throw 'Supply -ClientArtifact and -TrustHostedClient after verifying the artifact origin'
+            }
+            $artifact = [IO.Path]::GetFullPath($ClientArtifact)
+            $artifactLock = Get-Content -Raw -LiteralPath (Join-Path $artifact 'pack.lock.json') | ConvertFrom-Json -AsHashtable
+            if (($artifactLock | ConvertTo-Json -Compress -Depth 12) -cne ($lock | ConvertTo-Json -Compress -Depth 12)) {
+                throw 'Hosted client was built against a different pack lock'
+            }
+            $checksum = (Get-Content -Raw -LiteralPath (Join-Path $artifact 'SHA256SUMS')).Trim()
+            if ($checksum -cnotmatch '^([a-f0-9]{64})  horizon-client\.exe$') { throw 'Invalid hosted client checksum' }
+            $expected = $Matches[1]
+            $client = Join-Path $artifact 'horizon-client.exe'
+            if ((Get-FileHash -LiteralPath $client -Algorithm SHA256).Hash -ine $expected) {
+                throw 'Hosted client checksum mismatch'
+            }
+            Install-PinnedBase $env:HORIZON_LAUNCHER_HOME
+            $import = & $exe import-build $client --version $lock.importBase.tag --trust-unsigned --json | ConvertFrom-Json
+            if ($import.imported -cnotmatch '^imported-[0-9-]+-[a-f0-9]+$') { throw 'Unexpected imported version tag' }
+            $installedClient = Join-Path $env:HORIZON_LAUNCHER_HOME 'versions' $import.imported 'horizon-client.exe'
+            if ((Get-FileHash -LiteralPath $installedClient -Algorithm SHA256).Hash -ine $expected) {
+                throw 'Imported client checksum mismatch'
+            }
+            & $exe instance version $instance.id $import.imported | Out-Null
+            Write-Output "Imported client for $($instance.id): $($import.imported)"
             return
         }
 

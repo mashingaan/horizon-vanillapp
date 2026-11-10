@@ -140,6 +140,12 @@
   "importBase": {
     "tag": "nightly-2026-11-04",
     "revision": "6475f62f3c834b7489e1816bf47f47ea5eb2b879",
-    "windowsZipSha256": "54649fcb23f89b74d698438f2b1355173cf1ab9183eafedb95d6e98818d2d84c"
+    "asset": {
+      "name": "nightly-2026-11-04-windows-x64.zip",
+      "url": "https://github.com/horizon-rust/horizon/releases/download/nightly-2026-11-04/horizon-windows-x64.zip",
+      "size": 42143870,
+      "algorithm": "SHA256",
+      "hash": "54649fcb23f89b74d698438f2b1355173cf1ab9183eafedb95d6e98818d2d84c"
+    }
   }
 }

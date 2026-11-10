@@ -16,26 +16,15 @@
 
 ## Подключение клиента с Tectonic
 
-1. Запустите проверку `Verify pack` в GitHub Actions со входом `windows_client=true` на доступном бесплатном стандартном runner. Дождитесь успешного прогона и скачайте `horizon-vanillapp-windows-x64` из его артефактов. Workflow проверяет исходники и хеш Tectonic, применяет миксины и собирает только клиент.
-2. Проверьте, что SHA-256 файла `horizon-client.exe` совпадает с `SHA256SUMS` из того же прогона, а `pack.lock.json` артефакта совпадает с локальным. Проверьте репозиторий, ревизию и происхождение прогона перед импортом исполняемого файла.
-3. Откройте выделенный лаунчер и войдите в аккаунт Microsoft. Установите официальный `nightly-2026-11-04` в Versions. Это кандидат на роль основы файлов игры для импорта. У него совпадают `research-lock.json`, дерево `horizon-prepare/src` и версии его выходных данных с закрепленной ревизией клиента Tectonic. Игровая проверка этой пары еще предстоит. [Кандидат для импорта](https://github.com/horizon-rust/horizon/releases/tag/nightly-2026-11-04)
+1. Запустите `Verify pack` в GitHub Actions со входом `windows_client=true` на доступном бесплатном стандартном runner. После успешного прогона распакуйте артефакт `horizon-vanillapp-windows-x64` в отдельный каталог. Workflow сверяет исходники и хеш Tectonic, применяет миксины и собирает клиент.
+2. Проверьте репозиторий, ревизию и происхождение прогона перед использованием `-TrustHostedClient`. Скрипт сверяет SHA-256 клиента и содержимое `pack.lock.json` артефакта. Он устанавливает основу из официального ZIP `nightly-2026-11-04` с закрепленным SHA-256, затем импортирует клиент и назначает его отдельному экземпляру. Если нужен только официальный Nightly, используйте `-Action InstallBase`. У этого Nightly совпадают `research-lock.json`, дерево `horizon-prepare/src` и версии его выходных данных с закрепленной ревизией клиента Tectonic. Игровая проверка этой пары еще предстоит. [Выпуск Nightly](https://github.com/horizon-rust/horizon/releases/tag/nightly-2026-11-04) · [Импорт клиента](https://github.com/horizon-rust/horizon/blob/8dbbde43501924d16497d251e6e9d08f812eafcd/launcher/src/build_import.rs)
 
 ```powershell
+./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action ImportClient -ClientArtifact 'E:\UserTemp\horizon-vanillapp-windows-x64' -TrustHostedClient
 ./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action OpenLauncher
 ```
 
-4. Закройте лаунчер. Выполните команды в отдельном окне PowerShell, подставив путь к проверенному клиенту.
-
-```powershell
-$root = 'E:\HorizonVanillaPP'
-$env:HORIZON_LAUNCHER_HOME = Join-Path $root 'launcher-data'
-$env:HORIZON_HOME = Join-Path $root 'game-data'
-$launcher = Join-Path $root 'tools\horizon-launcher-0.2.58.exe'
-& $launcher instance list --json
-& $launcher import-build 'E:\UserTemp\horizon-client.exe' --version nightly-2026-11-04 --trust-unsigned --json
-```
-
-5. Скопируйте значение `imported` из ответа. Назначьте его экземпляру с идентификатором из `instance list` командой `instance version <INSTANCE> <TAG>`. Снова откройте лаунчер, выберите этот экземпляр, выполните Prepare из законной копии Minecraft 26.3 и запустите игру. В Options → Mods включите Tectonic-Horizon перед созданием тестового мира. Проверьте, что после перезапуска мод остается включенным. [Импорт клиента](https://github.com/horizon-rust/horizon/blob/8dbbde43501924d16497d251e6e9d08f812eafcd/launcher/src/build_import.rs)
+3. Войдите в аккаунт Microsoft. Выполните Prepare из законной копии Minecraft 26.3 и запустите игру. В Options → Mods включите Tectonic-Horizon перед созданием тестового мира. Проверьте, что после перезапуска мод остается включенным.
 
 ## Профили, обновление и миры
 

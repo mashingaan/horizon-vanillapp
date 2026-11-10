@@ -8,6 +8,14 @@ $lock = Get-Content -Raw -LiteralPath (Join-Path $project 'pack.lock.json') | Co
 if ($lock.minecraft -ne '26.3' -or $lock.horizon -cnotmatch '^[a-f0-9]{40}$' -or $lock.mixins -cnotmatch '^[a-f0-9]{40}$') {
     throw 'Invalid engine or Minecraft pins'
 }
+if ($lock.importBase.tag -cnotmatch '^nightly-\d{4}-\d{2}-\d{2}$' -or
+    $lock.importBase.revision -cnotmatch '^[a-f0-9]{40}$' -or
+    $lock.importBase.asset.url -cne "https://github.com/horizon-rust/horizon/releases/download/$($lock.importBase.tag)/horizon-windows-x64.zip" -or
+    $lock.importBase.asset.algorithm -cne 'SHA256' -or
+    $lock.importBase.asset.hash -cnotmatch '^[a-f0-9]{64}$' -or
+    $lock.importBase.asset.size -le 0) {
+    throw 'Invalid official base release pin'
+}
 
 $scratch = Join-Path ([IO.Path]::GetTempPath()) "horizon-stage-test-$([guid]::NewGuid())"
 $root = Join-Path $scratch 'instance'

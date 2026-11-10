@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Validate pins and exercise the staging integrity checks
         shell: pwsh
         run: ./tests/Test-Stage.ps1
@@ -33,6 +35,8 @@ jobs:
       HORIZON_TEST_SHADER_PACKS: ${{ runner.temp }}/shader-probe
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Read Horizon and Photon pins
         id: pins
         shell: pwsh
@@ -66,10 +70,13 @@ jobs:
     timeout-minutes: 40
     env:
       CARGO_BUILD_JOBS: 2
+      CARGO_TARGET_DIR: ${{ github.workspace }}/horizon-target
     steps:
       - name: Preserve upstream source bytes on Windows
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Read exact revisions and download the Tectonic archive
         id: pins
         shell: pwsh
@@ -97,7 +104,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95.0
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: horizon -> ../horizon-patched/target
+          workspaces: horizon -> ../horizon-target
           key: ${{ steps.pins.outputs.horizon }}-${{ steps.pins.outputs.mixins }}-${{ steps.pins.outputs.tectonic }}
       - name: Verify the archive against source and apply the pinned mixins
         shell: pwsh
@@ -105,6 +112,7 @@ jobs:
           HORIZON_REVISION: ${{ steps.pins.outputs.horizon }}
           MIXINS_REVISION: ${{ steps.pins.outputs.mixins }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           python ./tests/verify_tectonic.py "$env:RUNNER_TEMP/tectonic.hnmod" tectonic-source native-package
           Set-Content -NoNewline horizon/.horizon-revision $env:HORIZON_REVISION
           cargo install --locked --git https://github.com/horizon-rust/horizon-mixins --rev $env:MIXINS_REVISION horizon-mixins-cli
@@ -113,9 +121,12 @@ jobs:
         working-directory: horizon-patched
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo build --locked --profile fast -p horizon-client --bin horizon-client
+          $binary = Join-Path $env:CARGO_TARGET_DIR 'fast/horizon-client.exe'
+          & $binary --version | Out-Host
           New-Item -ItemType Directory -Path ../client | Out-Null
-          Copy-Item target/fast/horizon-client.exe ../client/
+          Copy-Item $binary ../client/
           $hash = (Get-FileHash ../client/horizon-client.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  horizon-client.exe" | Set-Content ../client/SHA256SUMS
           Copy-Item ../pack.lock.json ../client/
