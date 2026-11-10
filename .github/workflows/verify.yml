@@ -115,6 +115,9 @@ jobs:
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           python ./tests/verify_tectonic.py "$env:RUNNER_TEMP/tectonic.hnmod" tectonic-source native-package
+          # The launcher's source extraction skips symlinks. The pinned checkout has one documentation link.
+          $link = Get-Item -LiteralPath horizon/CLAUDE.md
+          if ($link.LinkType -eq 'SymbolicLink') { Remove-Item -LiteralPath $link.FullName }
           Set-Content -NoNewline horizon/.horizon-revision $env:HORIZON_REVISION
           cargo install --locked --git https://github.com/horizon-rust/horizon-mixins --rev $env:MIXINS_REVISION horizon-mixins-cli
           horizon-mixins apply --workspace horizon --mods native-package/mixins --out horizon-patched
