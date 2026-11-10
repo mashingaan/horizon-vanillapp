@@ -32,7 +32,6 @@ jobs:
     timeout-minutes: 25
     env:
       CARGO_BUILD_JOBS: 2
-      HORIZON_TEST_SHADER_PACKS: ${{ runner.temp }}/shader-probe
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,8 +43,10 @@ jobs:
           $lock = Get-Content -Raw pack.lock.json | ConvertFrom-Json
           "horizon=$($lock.horizon)" >> $env:GITHUB_OUTPUT
           $photon = $lock.files.photon
-          New-Item -ItemType Directory -Path $env:HORIZON_TEST_SHADER_PACKS | Out-Null
-          $archive = Join-Path $env:HORIZON_TEST_SHADER_PACKS $photon.name
+          $probeDir = Join-Path $env:RUNNER_TEMP 'shader-probe'
+          "HORIZON_TEST_SHADER_PACKS=$probeDir" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path $probeDir | Out-Null
+          $archive = Join-Path $probeDir $photon.name
           Invoke-WebRequest -Uri $photon.url -OutFile $archive -TimeoutSec 90
           if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash -ine $photon.hash) {
               throw 'Photon archive hash mismatch'
