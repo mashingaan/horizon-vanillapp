@@ -107,6 +107,7 @@ jobs:
         with:
           workspaces: horizon -> ../horizon-target
           key: ${{ steps.pins.outputs.horizon }}-${{ steps.pins.outputs.mixins }}-${{ steps.pins.outputs.tectonic }}
+          cache-on-failure: true
       - name: Verify the archive against source and apply the pinned mixins
         shell: pwsh
         env:
@@ -128,7 +129,8 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           cargo build --locked --profile fast -p horizon-client --bin horizon-client
           $binary = Join-Path $env:CARGO_TARGET_DIR 'fast/horizon-client.exe'
-          & $binary --version | Out-Host
+          $help = & $binary --help | Out-String
+          if ($help -notmatch '--resources') { throw 'Horizon client help is missing --resources' }
           New-Item -ItemType Directory -Path ../client | Out-Null
           Copy-Item $binary ../client/
           $hash = (Get-FileHash ../client/horizon-client.exe -Algorithm SHA256).Hash.ToLowerInvariant()
