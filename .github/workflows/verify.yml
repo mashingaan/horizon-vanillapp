@@ -1,0 +1,127 @@
+name: Verify pack
+on:
+  workflow_dispatch:
+    inputs:
+      photon_probe:
+        description: Run the pinned Horizon shader translation probe on Photon
+        type: boolean
+        default: false
+      windows_client:
+        description: Build an unsigned Tectonic client on the pinned Windows source
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate pins and exercise the staging integrity checks
+        shell: pwsh
+        run: ./tests/Test-Stage.ps1
+
+  photon:
+    if: inputs.photon_probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CARGO_BUILD_JOBS: 2
+      HORIZON_TEST_SHADER_PACKS: ${{ runner.temp }}/shader-probe
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Horizon and Photon pins
+        id: pins
+        shell: pwsh
+        run: |
+          $lock = Get-Content -Raw pack.lock.json | ConvertFrom-Json
+          "horizon=$($lock.horizon)" >> $env:GITHUB_OUTPUT
+          $photon = $lock.files.photon
+          New-Item -ItemType Directory -Path $env:HORIZON_TEST_SHADER_PACKS | Out-Null
+          $archive = Join-Path $env:HORIZON_TEST_SHADER_PACKS $photon.name
+          Invoke-WebRequest -Uri $photon.url -OutFile $archive -TimeoutSec 90
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash -ine $photon.hash) {
+              throw 'Photon archive hash mismatch'
+          }
+      - uses: actions/checkout@v4
+        with:
+          repository: horizon-rust/horizon
+          ref: ${{ steps.pins.outputs.horizon }}
+          path: horizon
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: horizon
+      - name: Probe Photon translation without a GPU
+        working-directory: horizon
+        run: cargo test -p horizon-shaders --locked --release --test real_packs -- --ignored --nocapture
+
+  tectonic:
+    if: inputs.windows_client
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - name: Preserve upstream source bytes on Windows
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - name: Read exact revisions and download the Tectonic archive
+        id: pins
+        shell: pwsh
+        run: |
+          $lock = Get-Content -Raw pack.lock.json | ConvertFrom-Json
+          "horizon=$($lock.horizon)" >> $env:GITHUB_OUTPUT
+          "mixins=$($lock.mixins)" >> $env:GITHUB_OUTPUT
+          "tectonic=$($lock.tectonicSource)" >> $env:GITHUB_OUTPUT
+          Invoke-WebRequest -Uri $lock.files.tectonic_horizon.url -OutFile $env:RUNNER_TEMP/tectonic.hnmod -TimeoutSec 90
+      - uses: actions/checkout@v4
+        with:
+          repository: eltanschauung/tectonic-horizon
+          ref: ${{ steps.pins.outputs.tectonic }}
+          path: tectonic-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: horizon-rust/horizon
+          ref: ${{ steps.pins.outputs.horizon }}
+          path: horizon
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: horizon -> ../horizon-patched/target
+          key: ${{ steps.pins.outputs.horizon }}-${{ steps.pins.outputs.mixins }}-${{ steps.pins.outputs.tectonic }}
+      - name: Verify the archive against source and apply the pinned mixins
+        shell: pwsh
+        env:
+          HORIZON_REVISION: ${{ steps.pins.outputs.horizon }}
+          MIXINS_REVISION: ${{ steps.pins.outputs.mixins }}
+        run: |
+          python ./tests/verify_tectonic.py "$env:RUNNER_TEMP/tectonic.hnmod" tectonic-source native-package
+          Set-Content -NoNewline horizon/.horizon-revision $env:HORIZON_REVISION
+          cargo install --locked --git https://github.com/horizon-rust/horizon-mixins --rev $env:MIXINS_REVISION horizon-mixins-cli
+          horizon-mixins apply --workspace horizon --mods native-package/mixins --out horizon-patched
+      - name: Build and hash the Windows client
+        working-directory: horizon-patched
+        shell: pwsh
+        run: |
+          cargo build --locked --profile fast -p horizon-client --bin horizon-client
+          New-Item -ItemType Directory -Path ../client | Out-Null
+          Copy-Item target/fast/horizon-client.exe ../client/
+          $hash = (Get-FileHash ../client/horizon-client.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  horizon-client.exe" | Set-Content ../client/SHA256SUMS
+          Copy-Item ../pack.lock.json ../client/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horizon-vanillapp-windows-x64
+          path: client/
+          if-no-files-found: error
+          retention-days: 7

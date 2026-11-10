@@ -1,0 +1,62 @@
+# Horizon Vanilla++ для Windows 11 x64
+
+Состояние M1 на 10 ноября 2026 года. Установщик проверяет архивы и разворачивает ресурсы в изолированном экземпляре официального лаунчера Horizon. Клиент с Tectonic, первый игровой запуск и результаты на RTX 2060 еще требуют проверки.
+
+## Развертывание пакетов
+
+Понадобятся PowerShell 7.4 или новее, свободное место на диске и законная копия Minecraft Java Edition. Скачайте файл `Patrix_26.3_32x_basic.zip` из выпуска [Patrix 32x Basic 93](https://modrinth.com/resourcepack/patrix-32x/version/V9k0Ak3w). Остальные архивы скрипт скачает с GitHub и Modrinth. Patrix хранится в каталоге экземпляра по вашему выбору.
+
+Из корня этого репозитория выполните следующую команду. Замените путь к архиву на свой. Укажите новый пустой каталог для `-Root`.
+
+```powershell
+./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action InstallPacks -PatrixZip 'E:\Downloads\Patrix_26.3_32x_basic.zip'
+```
+
+`InstallPacks` включает Patrix и применяет Balanced по умолчанию. Для скачивания и проверки архивов без запуска лаунчера укажите `-Action Stage`. Папки `launcher-data` и `game-data` хранят отдельные данные лаунчера и игры. Внутри экземпляра находятся `resourcepacks`, `shaderpacks`, настройки и сохранения. Архив Tectonic хранится в `downloads` для проверки перед сборкой.
+
+## Подключение клиента с Tectonic
+
+1. Запустите проверку `Verify pack` в GitHub Actions со входом `windows_client=true` на доступном бесплатном стандартном runner. Дождитесь успешного прогона и скачайте `horizon-vanillapp-windows-x64` из его артефактов. Workflow проверяет исходники и хеш Tectonic, применяет миксины и собирает только клиент.
+2. Проверьте, что SHA-256 файла `horizon-client.exe` совпадает с `SHA256SUMS` из того же прогона, а `pack.lock.json` артефакта совпадает с локальным. Проверьте репозиторий, ревизию и происхождение прогона перед импортом исполняемого файла.
+3. Откройте выделенный лаунчер и войдите в аккаунт Microsoft. Установите официальный `nightly-2026-11-04` в Versions. Это кандидат на роль основы файлов игры для импорта. У него совпадают `research-lock.json`, дерево `horizon-prepare/src` и версии его выходных данных с закрепленной ревизией клиента Tectonic. Игровая проверка этой пары еще предстоит. [Кандидат для импорта](https://github.com/horizon-rust/horizon/releases/tag/nightly-2026-11-04)
+
+```powershell
+./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action OpenLauncher
+```
+
+4. Закройте лаунчер. Выполните команды в отдельном окне PowerShell, подставив путь к проверенному клиенту.
+
+```powershell
+$root = 'E:\HorizonVanillaPP'
+$env:HORIZON_LAUNCHER_HOME = Join-Path $root 'launcher-data'
+$env:HORIZON_HOME = Join-Path $root 'game-data'
+$launcher = Join-Path $root 'tools\horizon-launcher-0.2.58.exe'
+& $launcher instance list --json
+& $launcher import-build 'E:\UserTemp\horizon-client.exe' --version nightly-2026-11-04 --trust-unsigned --json
+```
+
+5. Скопируйте значение `imported` из ответа. Назначьте его экземпляру с идентификатором из `instance list` командой `instance version <INSTANCE> <TAG>`. Снова откройте лаунчер, выберите этот экземпляр, выполните Prepare из законной копии Minecraft 26.3 и запустите игру. В Options → Mods включите Tectonic-Horizon перед созданием тестового мира. Проверьте, что после перезапуска мод остается включенным. [Импорт клиента](https://github.com/horizon-rust/horizon/blob/8dbbde43501924d16497d251e6e9d08f812eafcd/launcher/src/build_import.rs)
+
+## Профили, обновление и миры
+
+| Профиль | Шейдер на этапе M1 | Обычная дальность / LOD, чанки |
+| --- | --- | --- |
+| Performance | Wisdom Lite | 8 / 64 |
+| Balanced | Wisdom | 12 / 128 |
+| Cinematic | Photon, экспериментальный | 20 / 256 |
+
+Закройте игру перед переключением. Профиль меняет выбранный шейдер, дальность, детализацию LOD, дальность симуляции, частицы и облака. Окончательный выбор шейдера для Balanced зависит от сравнения на RTX 2060.
+
+```powershell
+./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action Profile -Profile Performance
+./Install.ps1 -Root 'E:\HorizonVanillaPP' -Action Backup -World 'Horizon Test'
+```
+
+Команда Backup вызывает резервное копирование Horizon для указанного мира. Чтобы восстановить мир, сначала проверьте ZIP в отдельном пустом каталоге, затем перенесите сохранение в новый экземпляр с тем же клиентом, набором модов и настройками генерации. Для новой ревизии используйте другой `-Root` и новый тестовый мир. При возврате к прежней сборке открывайте исходный экземпляр с его прежним клиентом. Перед переносом мира снимите резервную копию и проверьте, что восстановленная копия открывается.
+
+## Проверка
+
+- [Аудит M0 и матрица модов](docs/M0.md)
+- `tests/Test-Stage.ps1` проверяет закрепленные метаданные и отказ при изменении байтов кешированного файла.
+- `Verify pack` запускает проверку установщика. Опциональные задачи отдельно проверяют трансляцию Photon и собирают Windows-клиент с Tectonic. Прогон трансляции не проверяет отрисовку на GPU.
+- Для приемки сравните Photon, Wisdom и остальные кандидаты на одном тестовом маршруте через горы, лес, воду и дождь. На каждом профиле сохраните время кадра, средний FPS, 1% low, пиковую VRAM и версию клиента. Проверьте Patrix, переход от ближних чанков к LOD, повторное открытие мира и восстановление копии.

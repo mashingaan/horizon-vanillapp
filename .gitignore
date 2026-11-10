@@ -1,0 +1,9 @@
+*.zip
+*.hnmod
+*.hshader
+*.exe
+*.partial
+downloads/
+game-data/
+launcher-data/
+tools/

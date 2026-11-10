@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "minecraft": "26.3",
+  "horizon": "8dbbde43501924d16497d251e6e9d08f812eafcd",
+  "mixins": "e8cd0aa38cffef49cb2e088ef716baa107148c02",
+  "tectonicSource": "6f69f2b64a41f0cad09f87840cbdb104138c54c3",
+  "files": {
+    "tectonic_horizon": {
+      "version": "0.3.4",
+      "source": "https://github.com/eltanschauung/tectonic-horizon",
+      "license": "CC0-1.0",
+      "name": "tectonic_horizon-0.3.4.hnmod",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/tectonic_horizon-0.3.4/tectonic_horizon-0.3.4.hnmod",
+      "size": 27241,
+      "algorithm": "SHA256",
+      "hash": "590198d7df43b5c9474c41648db89a15bd4d388be0fe860a2f84a84b59285cec"
+    },
+    "wisdom_horizon": {
+      "version": "1.3.7",
+      "source": "https://github.com/tomasmendes01/wisdom-horizon",
+      "license": "Apache-2.0",
+      "name": "wisdom_horizon-1.3.7.hshader",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/wisdom_horizon-1.3.7/wisdom_horizon-1.3.7.hshader",
+      "size": 39196,
+      "algorithm": "SHA256",
+      "hash": "3c1dc775e3eac9e67ced2e346bf7edd5cb83161b35eca7231ca9aff7725a40b4"
+    },
+    "wisdom_horizon_lite": {
+      "version": "1.3.7",
+      "source": "https://github.com/tomasmendes01/wisdom-horizon",
+      "license": "Apache-2.0",
+      "name": "wisdom_horizon_lite-1.3.7.hshader",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/wisdom_horizon_lite-1.3.7/wisdom_horizon_lite-1.3.7.hshader",
+      "size": 37136,
+      "algorithm": "SHA256",
+      "hash": "ba41f0094a886b2e86a462994206fa184ebabf424dc0736829ddc7024ea9e880"
+    },
+    "daybreak": {
+      "version": "0.2.0",
+      "source": "https://github.com/hildlabs/horizon-shaders",
+      "license": "MIT",
+      "name": "daybreak-0.2.0.hshader",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/daybreak-0.2.0/daybreak-0.2.0.hshader",
+      "size": 20496,
+      "algorithm": "SHA256",
+      "hash": "2da76c32e18a3d16af4eab348683f9e51fe20cc8d1160eb342d5eb56b43fe365"
+    },
+    "lumen": {
+      "version": "2.1.0",
+      "source": "https://github.com/Lutziano888/horizon-lumen",
+      "license": "MIT",
+      "name": "lumen-2.1.0.hshader",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/lumen-2.1.0/lumen-2.1.0.hshader",
+      "size": 44638,
+      "algorithm": "SHA256",
+      "hash": "3249a3d8706e11c2175a16dbf034b36e41ed47c76c9749e7087ea0aab89a2dce"
+    },
+    "lumina": {
+      "version": "1.0.0",
+      "source": "https://github.com/cosmo-jar/Lumina-Shader-Pack-for-Horizon-Minecraft-on-Rust",
+      "license": "GPL-3.0",
+      "name": "lumina-1.0.0.hshader",
+      "url": "https://github.com/horizon-rust/horizon-mods/releases/download/lumina-1.0.0/lumina-1.0.0.hshader",
+      "size": 41770,
+      "algorithm": "SHA256",
+      "hash": "3b81722173fc4c4476def75fbfeff964ccd8a2fde0e31b49507078ea7616dd43"
+    },
+    "launcher": {
+      "version": "0.2.58",
+      "source": "https://github.com/horizon-rust/horizon/releases/tag/launcher%400.2.58",
+      "license": "MIT",
+      "name": "horizon-launcher-windows-x64.zip",
+      "url": "https://github.com/horizon-rust/horizon/releases/download/launcher%400.2.58/horizon-launcher-windows-x64.zip",
+      "size": 22145071,
+      "algorithm": "SHA256",
+      "hash": "43f9f519309b735f03d72caa89a0639800088fd8860e2c7a45dccec97b074965"
+    },
+    "photon": {
+      "version": "v1.4",
+      "source": "https://modrinth.com/shader/photon-shader/version/BnGklH5y",
+      "license": "Custom",
+      "name": "photon_v1.4.zip",
+      "url": "https://cdn.modrinth.com/data/lLqFfGNs/versions/BnGklH5y/photon_v1.4.zip",
+      "size": 3857333,
+      "algorithm": "SHA512",
+      "hash": "2dec87084dccf91a72a06235ecbfb3627f066699b5f70583f06077cba61433aedbfa6af28eb68bf1cdc726149cc3d9a587517cfab59e6a24e9d6a40b6874d655"
+    },
+    "patrix": {
+      "version": "93",
+      "source": "https://modrinth.com/resourcepack/patrix-32x/version/V9k0Ak3w",
+      "license": "All Rights Reserved",
+      "name": "Patrix_26.3_32x_basic.zip",
+      "url": "https://cdn.modrinth.com/data/olO1TaXd/versions/V9k0Ak3w/Patrix_26.3_32x_basic.zip",
+      "size": 76017425,
+      "algorithm": "SHA512",
+      "hash": "ad03f836285a0a894b0ed5d64ee3c910a67dd63c743e44f6f4330d32223dbff27795f7773d6ea6fb283591b489770822f796ce9184ac3f69663dc5a0cf4d0352"
+    }
+  },
+  "profiles": {
+    "Performance": {
+      "shader": "wisdom_horizon_lite",
+      "options": {
+        "renderDistance": 8,
+        "simulationDistance": 6,
+        "particles": 2,
+        "renderClouds": "\"false\""
+      },
+      "graphics": {
+        "lodDistance": 64,
+        "farDetail": "reduced"
+      }
+    },
+    "Balanced": {
+      "shader": "wisdom_horizon",
+      "options": {
+        "renderDistance": 12,
+        "simulationDistance": 8,
+        "particles": 1,
+        "renderClouds": "\"fast\""
+      },
+      "graphics": {
+        "lodDistance": 128,
+        "farDetail": "full"
+      }
+    },
+    "Cinematic": {
+      "shader": "photon",
+      "options": {
+        "renderDistance": 20,
+        "simulationDistance": 10,
+        "particles": 0,
+        "renderClouds": "\"true\""
+      },
+      "graphics": {
+        "lodDistance": 256,
+        "farDetail": "full"
+      }
+    }
+  },
+  "importBase": {
+    "tag": "nightly-2026-11-04",
+    "revision": "6475f62f3c834b7489e1816bf47f47ea5eb2b879",
+    "windowsZipSha256": "54649fcb23f89b74d698438f2b1355173cf1ab9183eafedb95d6e98818d2d84c"
+  }
+}
