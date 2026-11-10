@@ -214,7 +214,8 @@ try {
 
         if ($Action -eq 'OpenLauncher') {
             & $exe instance select $instance.id | Out-Null
-            Start-Process -FilePath $exe
+            $config = Join-Path $homePath 'config/tectonic-horizon.json'
+            Start-Process -FilePath $exe -Environment @{ TECTONIC_HORIZON_CONFIG = $config }
             return
         }
 
@@ -242,6 +243,17 @@ try {
             if ((Get-FileHash -LiteralPath $client -Algorithm SHA256).Hash -ine $expected) {
                 throw 'Hosted client checksum mismatch'
             }
+            $saves = Join-Path $homePath 'saves'
+            if ((Test-Path -LiteralPath $saves) -and (Get-ChildItem -LiteralPath $saves -Force -Directory | Select-Object -First 1)) {
+                $current = $null
+                if ($instance.version -cmatch '^imported-\d{4}-\d{2}-\d{2}-[a-f0-9]{7}$') {
+                    $current = Join-Path $env:HORIZON_LAUNCHER_HOME 'versions' $instance.version 'horizon-client.exe'
+                }
+                if (!$current -or !(Test-Path -LiteralPath $current -PathType Leaf) -or
+                    (Get-FileHash -LiteralPath $current -Algorithm SHA256).Hash -ine $expected) {
+                    throw 'This instance contains saved worlds. Use a new -Root to install a different client.'
+                }
+            }
             Install-PinnedBase $env:HORIZON_LAUNCHER_HOME
             $import = & $exe import-build $client --version $lock.importBase.tag --trust-unsigned --json | ConvertFrom-Json
             if ($import.imported -cnotmatch '^imported-[0-9-]+-[a-f0-9]+$') { throw 'Unexpected imported version tag' }
@@ -256,7 +268,21 @@ try {
 
         if ($Action -eq 'Backup') {
             if (!$World) { throw 'Supply the world name or folder with -World' }
-            & $exe worlds backup $World --instance $instance.id
+            $result = & $exe worlds backup $World --instance $instance.id --json | ConvertFrom-Json
+            $archive = Get-Item -LiteralPath $result.backup
+            $backupDir = Join-Path $homePath 'backups'
+            if ($archive.DirectoryName -ine $backupDir -or $archive.Extension -ine '.zip') {
+                throw 'Launcher did not return an archive in the instance backup directory'
+            }
+            $backup = [IO.Compression.ZipFile]::OpenRead($archive.FullName)
+            try {
+                $level = @($backup.Entries | Where-Object FullName -cmatch '^[^/]+/level\.dat$')
+                if ($level.Count -ne 1 -or $level[0].Length -eq 0) { throw 'Backup is missing the world level.dat' }
+            } finally {
+                $backup.Dispose()
+            }
+            Write-Output "Backup: $($archive.FullName)"
+            Write-Output "SHA-256: $((Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash)"
             return
         }
         if ($Action -eq 'InstallPacks') {
